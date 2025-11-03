@@ -1,13 +1,15 @@
+# ---------------- ARQUIVO PRINCIPAL DA APLICAÇÃO  ---------------- #
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, users, events
+from starlette.middleware.gzip import GZipMiddleware
+from .routers import auth, users, events, groups, publications, chat
 from .db import Base, engine
 
-# Cria as tabelas no banco de dados, se não existirem
+# Criar tabelas
 Base.metadata.create_all(bind=engine)
 
-# Cria a aplicação principal do FastAPI
+# Instanciar FastAPI
 app = FastAPI(
     title="UCONNECT API",
     version="1.0.0",
@@ -15,31 +17,39 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# <-- CORREÇÃO: Unifique todas as origens permitidas em uma única lista -->
-# Usar um set {} primeiro ajuda a remover duplicatas automaticamente.
+# OTIMIZAÇÃO 1: Adicionar compressão GZIP
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# OTIMIZAÇÃO 2: CORS configurado
 origins = {
-    "null",  # Essencial para testes abrindo o HTML localmente
-    "http://127.0.0.1:5500", # Para o Live Server do VS Code
+    "null",
+    "http://127.0.0.1:5500",
     "http://localhost:5500",
-    "http://127.0.0.1:8000", # Origem da própria API (geralmente não necessário, mas não prejudica)
-    "http://localhost:3000", # Origem que estava no segundo bloco
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 }
 
-# <-- CORREÇÃO: Adicione o CORSMiddleware APENAS UMA VEZ -->
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(origins),  # Converte o set de volta para uma lista
+    allow_origins=list(origins),
     allow_credentials=True,
-    allow_methods=["*"],          # Permite todos os métodos (GET, POST, OPTIONS, etc.)
-    allow_headers=["*"],          # Permite todos os cabeçalhos
+    allow_methods=["*"],
+    allow_headers=["*"],
+    # OTIMIZAÇÃO: Cache de preflight requests
+    max_age=3600,
 )
 
-# Inclui os roteadores da sua aplicação
+# Incluir rotas
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(events.router)
+app.include_router(groups.router)
+app.include_router(publications.router)
+app.include_router(chat.router)
 
-# Rota principal
+# Rotas básicas
 @app.get("/")
 def root():
     return {
@@ -48,7 +58,7 @@ def root():
         "health": "/health"
     }
 
-# Rota de verificação de saúde da API
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+    

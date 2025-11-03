@@ -1,0 +1,151 @@
+/* ======== LAYOUT PRINCIPAL ======== */
+.chat-layout {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* ======== MENU LATERAL ======== */
+.sidebar {
+  width: 80px;
+  background-color: #ffffff;
+  border-right: 1px solid #dee2e6;
+}
+
+.btn-sidebar {
+  color: #1b4b8a;
+  margin-bottom: 1rem;
+  background: none;
+  border: none;
+}
+
+.btn-sidebar.active,
+.btn-sidebar:hover {
+  color: #fff;
+  background-color: #1b4b8a;
+  border-radius: 10px;
+}
+
+/* ======== CARTÃO DO CHAT ======== */
+.chat-card {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ======== ÁREA DE MENSAGENS ======== */
+.chat-body {
+  flex: 1;
+  background-color: #d6dee5;
+  overflow-y: auto;
+  padding: 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-body .d-flex.flex-column.gap-2 {
+  gap: 0.8rem;
+}
+
+.chat-body .align-self-start,
+.chat-body .align-self-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-body .align-self-end {
+  align-items: flex-end;
+  text-align: right;
+}
+
+/* ======== BALÕES DE MENSAGENS ======== */
+.msg-balao {
+  border-radius: 18px;
+  padding: 10px 16px;
+  line-height: 1.5;
+  display: inline-block;
+  max-width: 80%;
+  width: fit-content;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+  color: #fff;
+}
+
+.msg-balao.recebida {
+  background-color: #226597; /* azul institucional */
+}
+
+.msg-balao.enviada {
+  background-color: #1b4b8a; /* azul escuro */
+}
+
+/* Hora da mensagem */
+.chat-body small.text-muted {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+/* ======== RODAPÉ ======== */
+.card-footer {
+  border-top: 1px solid #dee2e6;
+  background-color: #f8f9fa;
+}
+
+.card-footer .input-group-text {
+  color: #1b4b8a;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.card-footer .input-group-text:hover {
+  color: #226597;
+}
+
+/* ======== FILTROS ======== */
+.filtro-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.filtro-icone {
+  width: 52px;
+  height: 52px;
+  background-color: #dfe4ea;
+  transition: background-color 0.25s, transform 0.25s;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filtro-icone.ativo {
+  background-color: #002855;
+}
+
+.filtro-item:hover .filtro-icone {
+  background-color: #cfd4da;
+}
+
+.filtro-item .small {
+  transition: color 0.2s ease-in-out;
+}
+
+/* ======== SCROLLBAR ======== */
+.chat-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-body::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.chat-body::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
