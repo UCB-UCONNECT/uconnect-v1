@@ -11,7 +11,7 @@ Suas responsabilidades incluem:
 - Fornecer um endpoint `/validate` para que o frontend possa verificar se uma
   sessão ainda é ativa.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -73,14 +73,14 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 # Invalida a sessão do usuário. A rota recebe um token JWT, localiza a
 # sessão correspondente no banco de dados e a remove, efetivamente
 # desconectando o usuário.
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(get_db)):
     # Busca e deleta a sessão no banco de dados.
     session = db.query(models.Session).filter(models.Session.token == token).first()
     if session:
         db.delete(session)
         db.commit()
-    return {"message": "Sessão encerrada"}
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # --- Endpoint: Validação de Sessão ---

@@ -12,7 +12,7 @@ Suas responsabilidades incluem:
   coordenadores possam gerenciar status e papéis de outros usuários, com
   lógicas de permissão detalhadas.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 from ..db import get_db
 from .. import models, schemas, utils
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 # --- Rota: Criar um Novo Usuário (Cadastro) ---
 # Endpoint público para o cadastro de novos usuários. Verifica se a matrícula
 # já existe e armazena a senha de forma segura (com hash).
-@router.post("/", response_model=schemas.UserResponse)
+@router.post("/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.registration == user.registration).first()
     if existing_user:
@@ -117,7 +117,7 @@ def delete_user(
     db.query(models.Session).filter(models.Session.userId == db_user.id).delete()
     db.delete(db_user)
     db.commit()
-    return {"message": "Usuário deletado com sucesso"}
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # --- Rota: Atualizar Status de Acesso (Admin) ---
 # Endpoint específico (somente Admin) para alterar o status de um usuário

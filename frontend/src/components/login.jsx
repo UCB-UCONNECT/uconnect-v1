@@ -15,8 +15,6 @@ function Login({ onLoginSuccess }) {
 
     try {
       const data = await login(registration, password);
-
-      localStorage.setItem('accessToken', data.access_token);
       
       console.log("Login bem-sucedido:", data);
       onLoginSuccess();

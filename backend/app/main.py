@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from .routers import auth, users, events, groups, publications, chat, notifications, access
+from .config import settings
 from .db import Base, engine
 
 Base.metadata.create_all(bind=engine)
@@ -33,20 +34,25 @@ app.add_middleware(
     max_age=3600,
 )
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(events.router)
-app.include_router(groups.router)
-app.include_router(publications.router)
-app.include_router(chat.router)
-app.include_router(notifications.router)
-app.include_router(access.router)
+api_prefix = settings.API_PREFIX.rstrip("/")
+app.include_router(auth.router, prefix=api_prefix)
+app.include_router(users.router, prefix=api_prefix)
+app.include_router(events.router, prefix=api_prefix)
+app.include_router(groups.router, prefix=api_prefix)
+app.include_router(publications.router, prefix=api_prefix)
+app.include_router(chat.router, prefix=api_prefix)
+app.include_router(notifications.router, prefix=api_prefix)
+app.include_router(access.router, prefix=api_prefix)
 
 
 @app.get("/")
 def root():
-    return {"message": "UCONNECT API", "docs": "/docs", "health": "/health"}
+    return {"message": "UCONNECT API", "docs": "/docs", "health": "/health", "api": api_prefix}
 
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+@app.get(f"{settings.API_PREFIX}/health")
+def versioned_health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow(), "api": settings.API_PREFIX}

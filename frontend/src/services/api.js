@@ -1,8 +1,10 @@
-const API_URL = "http://localhost:8000";
+// Base da API REST versionada
+const API_URL = "http://localhost:8000/api/v1";
 
-const getToken = () => sessionStorage.getItem("access_token");
-const setToken = (token) => sessionStorage.setItem("access_token", token);
-const removeToken = () => sessionStorage.removeItem("access_token");
+const TOKEN_KEY = "access_token";
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+const removeToken = () => localStorage.removeItem(TOKEN_KEY);
 
 const getHeaders = (includeAuth = true) => {
     const headers = { "Content-Type": "application/json" };
@@ -25,7 +27,7 @@ const handleResponse = async (response) => {
 };
 
 export const login = async (registration, password) => {
-    const response = await fetch(`${API_URL}/auth/login/`, {
+    const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: getHeaders(false),
         body: JSON.stringify({
@@ -41,7 +43,7 @@ export const login = async (registration, password) => {
 
 export const logout = async () => {
     try {
-        await fetch(`${API_URL}/auth/logout/`, {
+        await fetch(`${API_URL}/auth/logout`, {
             method: "POST",
             headers: getHeaders(),
         });
@@ -52,7 +54,7 @@ export const logout = async () => {
 
 export const validateSession = async () => {
     try {
-        const response = await fetch(`${API_URL}/auth/validate/`, {
+        const response = await fetch(`${API_URL}/auth/validate`, {
             method: "GET",
             headers: getHeaders(),
         });
@@ -64,7 +66,7 @@ export const validateSession = async () => {
 };
 
 export const getCurrentUser = async () => {
-    const response = await fetch(`${API_URL}/users/me/`, {
+    const response = await fetch(`${API_URL}/users/me`, {
         method: "GET",
         headers: getHeaders(),
     });
@@ -72,7 +74,7 @@ export const getCurrentUser = async () => {
 };
 
 export const updateProfile = async (userData) => {
-    const response = await fetch(`${API_URL}/users/me/`, {
+    const response = await fetch(`${API_URL}/users/me`, {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify(userData),
@@ -82,7 +84,7 @@ export const updateProfile = async (userData) => {
 
 export const listUsers = async (query = "") => {
     const qs = query ? `?q=${encodeURIComponent(query)}` : "";
-    const response = await fetch(`${API_URL}/users/${qs}`, {
+    const response = await fetch(`${API_URL}/users${qs}`, {
         method: "GET",
         headers: getHeaders(),
     });
@@ -130,7 +132,7 @@ const eventFromBackend = (event) => {
 };
 
 export const getEvents = async () => {
-    const response = await fetch(`${API_URL}/events/`, {
+    const response = await fetch(`${API_URL}/events`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
     });
@@ -139,7 +141,7 @@ export const getEvents = async () => {
 };
 
 export const getEvent = async (eventId) => {
-    const response = await fetch(`${API_URL}/events/${eventId}/`, {
+    const response = await fetch(`${API_URL}/events/${eventId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
     });
@@ -148,7 +150,7 @@ export const getEvent = async (eventId) => {
 };
 
 export const createEvent = async (event) => {
-    const response = await fetch(`${API_URL}/events/`, {
+    const response = await fetch(`${API_URL}/events`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(eventToBackend(event)),
@@ -158,7 +160,7 @@ export const createEvent = async (event) => {
 };
 
 export const updateEvent = async (eventId, event) => {
-    const response = await fetch(`${API_URL}/events/${eventId}/`, {
+    const response = await fetch(`${API_URL}/events/${eventId}`, {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify(eventToBackend(event)),
@@ -168,7 +170,7 @@ export const updateEvent = async (eventId, event) => {
 };
 
 export const deleteEvent = async (eventId) => {
-    const response = await fetch(`${API_URL}/events/${eventId}/`, {
+    const response = await fetch(`${API_URL}/events/${eventId}`, {
         method: "DELETE",
         headers: getHeaders(),
     });
@@ -178,7 +180,7 @@ export const deleteEvent = async (eventId) => {
 
 // ... (Funções de Chat permanecem iguais) ...
 export const getConversations = async () => {
-    const response = await fetch(`${API_URL}/chats/`, {
+    const response = await fetch(`${API_URL}/chats`, {
         headers: getHeaders(),
     });
     return handleResponse(response);
@@ -214,7 +216,7 @@ export const createConversation = async (participantIds, title) => {
     const body = { participant_ids: participantIds };
     if (title) body.title = title;
 
-    const response = await fetch(`${API_URL}/chats/`, {
+    const response = await fetch(`${API_URL}/chats`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(body),
@@ -223,7 +225,7 @@ export const createConversation = async (participantIds, title) => {
 };
 
 export const deleteConversation = async (chatId) => {
-    const response = await fetch(`${API_URL}/chats/${chatId}/`, {
+    const response = await fetch(`${API_URL}/chats/${chatId}`, {
         method: "DELETE",
         headers: getHeaders(),
     });
@@ -233,7 +235,7 @@ export const deleteConversation = async (chatId) => {
 // --- FUNÇÕES DE POSTS (COMUNICADOS) ---
 
 export const getPosts = async () => {
-    const response = await fetch(`${API_URL}/posts/`, { 
+    const response = await fetch(`${API_URL}/posts`, { 
         method: "GET",
         headers: getHeaders(),
     });
@@ -249,7 +251,7 @@ export const getPost = async (postId) => {
 };
 
 export const createPost = async (postData) => {
-    const response = await fetch(`${API_URL}/posts/`, {
+    const response = await fetch(`${API_URL}/posts`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(postData),
@@ -285,7 +287,7 @@ export const getPostsStats = async () => {
 // --- NOVAS FUNÇÕES DE ANNOUNCEMENTS (AVISOS) ---
 
 export const getAnnouncements = async () => {
-    const response = await fetch(`${API_URL}/announcements/`, { 
+    const response = await fetch(`${API_URL}/announcements`, { 
         method: "GET",
         headers: getHeaders(),
     });
@@ -301,7 +303,7 @@ export const getAnnouncement = async (announcementId) => {
 };
 
 export const createAnnouncement = async (announcementData) => {
-    const response = await fetch(`${API_URL}/announcements/`, {
+    const response = await fetch(`${API_URL}/announcements`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(announcementData),
