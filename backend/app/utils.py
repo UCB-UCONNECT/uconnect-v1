@@ -31,7 +31,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 # --- Funções Utilitárias de Criptografia e Token ---
 
 def _truncate_password(password: str) -> bytes:
-    """Função interna para truncar a senha para o limite de 72 bytes do bcrypt."""
+    """Função interna para truncar a senha para o limite de 72 bytes do bcrypt.""" # dando erro
     return password.encode('utf-8')[:72]
 
 def decode_token(token: str) -> dict | None:

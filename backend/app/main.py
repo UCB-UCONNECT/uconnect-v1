@@ -16,6 +16,7 @@ origins = {
     "null",
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "http://127.0.0.1:3000",  # React dev server (127.x)
     "http://127.0.0.1:8000",
     "http://localhost:3000", # A origem do seu frontend
     "http://localhost:5173",
