@@ -12,9 +12,9 @@ Suas responsabilidades incluem:
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from ..db import get_db
+from ..db.session import get_db
+from ..dependencies import require_roles
 from .. import schemas, models
-from ..utils import require_roles
 
 # --- Configuração do Roteador de Grupos ---
 # O `APIRouter` agrupa as rotas de gerenciamento de grupos sob o prefixo

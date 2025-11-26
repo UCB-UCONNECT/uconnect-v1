@@ -10,8 +10,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from . import models
-from .db import get_db
-from .utils import decode_token
+from .db.session import get_db
+from .core.jwt import decode_token
 
 # --- Esquema de Autenticação OAuth2 ---
 # Define o esquema de segurança. OAuth2PasswordBearer aponta para a URL de login

@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from ..db import get_db
+from ..db.session import get_db
+from ..dependencies import require_roles, get_current_active_user
 from .. import schemas, models
-from ..utils import require_roles, get_current_active_user
 from .notifications import notify_new_announcement
 
 # Roteador principal que será exportado e importado no main.py
-router = APIRouter()
+router = APIRouter(prefix="/publications", tags=["Publications"])
 
 # --- 1. Roteador para Posts (Comunicados) ---
 posts_router = APIRouter(prefix="/posts", tags=["Posts (Comunicados)"])
@@ -241,5 +241,17 @@ def get_announcements_count(
 
 
 # --- 3. Incluir os roteadores no principal ---
+# Rota raiz do publications que retorna os posts
+@router.get("/", response_model=List[schemas.PostResponse])
+def get_all_publications(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Retorna todos os posts (comunicados) públicos"""
+    query = db.query(models.Post)
+    posts = query.order_by(models.Post.date.desc()).offset(skip).limit(limit).all()
+    return posts
+
 router.include_router(posts_router)
 router.include_router(announcements_router)

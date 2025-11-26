@@ -1,12 +1,13 @@
 # backend/app/routers/notifications.py
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
-from typing import Dict, Set
+from typing import Dict, Set, List
 import json
 from datetime import datetime
-from .. import models
-from ..db import get_db
-from ..utils import decode_token
+from .. import models, schemas
+from ..db.session import get_db
+from ..core.jwt import decode_token
+from ..dependencies import get_current_active_user
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -39,6 +40,28 @@ class ConnectionManager:
             await self.send_personal_message(message, user_id)
 
 manager = ConnectionManager()
+
+@router.get("/", response_model=List[dict])
+def get_user_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Retorna as notificações do usuário autenticado"""
+    notifications = db.query(models.Notification).filter(
+        models.Notification.userId == current_user.id
+    ).order_by(models.Notification.date.desc()).limit(50).all()
+    
+    return [
+        {
+            "id": n.id,
+            "userId": n.userId,
+            "message": n.message,
+            "type": n.type,
+            "date": n.date,
+            "read": n.read
+        }
+        for n in notifications
+    ]
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Depends(get_db)):

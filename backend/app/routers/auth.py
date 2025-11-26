@@ -15,8 +15,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
-from ..db import get_db
-from .. import models, utils
+from ..db.session import get_db
+from ..dependencies import oauth2_scheme
+from ..core.security import verify_password
+from ..core.jwt import create_access_token
+from .. import models
 
 # --- Configuração do Roteador e Modelos de Dados ---
 # O `APIRouter` agrupa as rotas de autenticação sob o prefixo `/auth`.
@@ -47,7 +50,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     # Valida se o usuário existe e se a senha está correta.
     user = db.query(models.User).filter(models.User.registration == user_registration).first()
 
-    if not user or not utils.verify_password(user_password, user.passwordHash):
+    if not user or not verify_password(user_password, user.passwordHash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Matrícula ou senha incorretas"
@@ -61,7 +64,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
 
     # Cria um novo token de acesso (JWT) e a data de expiração.
-    token, expire = utils.create_access_token(data={"sub": user.registration})
+    token, expire = create_access_token(data={"sub": user.registration})
     db_session = models.Session(token=token, userId=user.id, startDate=datetime.utcnow(), expirationDate=expire)
     db.add(db_session)
     db.commit()
@@ -74,7 +77,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 # sessão correspondente no banco de dados e a remove, efetivamente
 # desconectando o usuário.
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(get_db)):
+def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     # Busca e deleta a sessão no banco de dados.
     session = db.query(models.Session).filter(models.Session.token == token).first()
     if session:
@@ -88,7 +91,7 @@ def logout(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(get_
 # associada ao token existe e se não expirou. Retorna um status de sucesso
 # ou um erro de não autorizado.
 @router.get("/validate")
-def validate_session(token: str = Depends(utils.oauth2_scheme), db: Session = Depends(get_db)):
+def validate_session(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     session = db.query(models.Session).filter(models.Session.token == token).first()
 
     if not session:

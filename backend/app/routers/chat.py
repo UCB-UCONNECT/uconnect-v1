@@ -5,13 +5,14 @@ from typing import List
 from datetime import datetime
 
 from .. import models, schemas, utils
-from ..db import get_db
+from ..db.session import get_db
+from ..dependencies import get_current_user
 from .notifications import notify_new_message
 
-router = APIRouter(prefix="/chats", tags=["Chat"])
-get_current_user = utils.get_current_user
+router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.get("/", response_model=List[schemas.Chat])
+@router.get("/conversations", response_model=List[schemas.Chat])
 def get_user_conversations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)

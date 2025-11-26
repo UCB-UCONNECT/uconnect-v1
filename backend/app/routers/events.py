@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, time as dt_time
 from .. import models, schemas
-from ..db import get_db
-from ..utils import require_roles
+from ..db.session import get_db
+from ..dependencies import require_roles
 
 User = models.User
 

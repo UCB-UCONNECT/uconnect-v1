@@ -64,7 +64,7 @@ export const NotificationProvider = ({ children }) => {
     if (!token) return;
 
     const websocket = new WebSocket(
-      `ws://localhost:8000/notifications/ws?token=${token}`
+      `ws://localhost:8000/api/v1/notifications/ws?token=${token}`
     );
 
     websocket.onopen = () => {

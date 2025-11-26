@@ -1,15 +1,35 @@
 // Em src/components/ProtectedRoute.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { isAuthenticated } from '../services/api'; // Sua função que verifica o token
+import { isAuthenticated, validateSession, removeToken, getToken } from '../services/api';
 
 const ProtectedRoute = () => {
-  if (!isAuthenticated()) {
-    // Se não estiver autenticado, redireciona para a página de login
+  const [status, setStatus] = useState('checking'); // checking | ok | unauth
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setStatus('unauth');
+      return;
+    }
+
+    // Valida sessão no backend para evitar tokens antigos
+    validateSession()
+      .then(() => setStatus('ok'))
+      .catch(() => {
+        removeToken();
+        setStatus('unauth');
+      });
+  }, []);
+
+  if (status === 'checking') {
+    return null; // opcional: pode renderizar um spinner simples
+  }
+
+  if (status === 'unauth' || !isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 
-  // Se estiver autenticado, renderiza o componente da rota (ex: Chat)
   return <Outlet />;
 };
 

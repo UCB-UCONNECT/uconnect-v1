@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, Date, Enum, F
 from sqlalchemy.orm import relationship
 import enum
 from datetime import datetime
-from .db import Base
+from .db.base import Base
 
 class UserRole(str, enum.Enum):
     student = "student"

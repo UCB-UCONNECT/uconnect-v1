@@ -14,8 +14,10 @@ Suas responsabilidades incluem:
 """
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
-from ..db import get_db
-from .. import models, schemas, utils
+from ..db.session import get_db
+from ..dependencies import require_roles, get_current_active_user
+from ..core.security import get_password_hash
+from .. import models, schemas
 
 # --- Configuração do Roteador de Usuários ---
 # O `APIRouter` agrupa as rotas de gerenciamento de usuários sob o prefixo
@@ -31,7 +33,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuário já cadastrado")
 
-    hashed_password = utils.get_password_hash(user.password)
+    hashed_password = get_password_hash(user.password)
 
     db_user = models.User(
         registration=user.registration,
@@ -52,7 +54,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.get("/", response_model=list[schemas.UserResponse])
 def read_users(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.require_roles(["admin"]))
+    current_user: models.User = Depends(require_roles(["admin"]))
 ):
     users = db.query(models.User).offset(skip).limit(limit).all()
     return users
@@ -60,16 +62,17 @@ def read_users(
 # --- Rota: Visualizar Próprio Perfil ---
 # Endpoint para que um usuário autenticado possa obter seus próprios dados.
 @router.get("/me", response_model=schemas.UserResponse)
-def read_own_profile(current_user: models.User = Depends(utils.get_current_active_user)):
+def read_own_profile(current_user: models.User = Depends(get_current_active_user)):
     return current_user
 
 # --- Rota: Atualizar Próprio Perfil ---
 # Endpoint para que um usuário possa atualizar suas próprias informações.
 # Campos sensíveis como `role` e `accessStatus` são ignorados por segurança.
 @router.put("/me", response_model=schemas.UserResponse)
-def update_profile(
-    user_update: schemas.UserUpdate, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.get_current_active_user)
+def update_own_profile(
+    user_update: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ):
     update_data = user_update.dict(exclude_unset=True)
     update_data.pop("role", None)
@@ -88,7 +91,7 @@ def update_profile(
 @router.put("/{user_id}", response_model=schemas.UserResponse)
 def update_user(
     user_id: int, user_update: schemas.UserUpdate, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.require_roles(["admin"]))
+    current_user: models.User = Depends(require_roles(["admin"]))
 ):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
@@ -108,7 +111,7 @@ def update_user(
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.require_roles(["admin"]))
+    current_user: models.User = Depends(require_roles(["admin"]))
 ):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
@@ -123,9 +126,9 @@ def delete_user(
 # Endpoint específico (somente Admin) para alterar o status de um usuário
 # (ativo, inativo, suspenso). Impede que um admin altere o próprio status.
 @router.patch("/{user_id}/status", response_model=schemas.UserResponse)
-def update_user_status(
-    user_id: int, status_update: schemas.UserStatusUpdate, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.require_roles(["admin"]))
+def update_user_access_status(
+    user_id: int, status_update: dict, db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
@@ -145,7 +148,7 @@ def update_user_status(
 @router.patch("/{user_id}/role", response_model=schemas.UserResponse)
 def update_user_role(
     user_id: int, role_update: schemas.UserRoleUpdate, db: Session = Depends(get_db),
-    current_user: models.User = Depends(utils.require_roles(["admin", "coordinator"]))
+    current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:

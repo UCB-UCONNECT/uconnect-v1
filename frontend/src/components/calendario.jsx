@@ -14,7 +14,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "../styles/calendario.css";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8000/api/v1";
 
 function Calendario() {
   const [eventos, setEventos] = useState([]);
@@ -104,7 +104,7 @@ function Calendario() {
       return;
     }
 
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("access_token");
     if (!token) {
       alert("Sessão expirada. Faça login novamente.");
       return;
@@ -155,7 +155,7 @@ function Calendario() {
       return;
     }
 
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("access_token");
     if (!token) {
       alert("Sessão expirada. Faça login novamente.");
       return;
@@ -201,7 +201,7 @@ function Calendario() {
   // Excluir evento
   // ---------------------------------
   const excluirEvento = async () => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("access_token");
     if (!token) {
       alert("Sessão expirada. Faça login novamente.");
       return;

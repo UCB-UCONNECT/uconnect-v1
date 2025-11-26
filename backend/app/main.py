@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from .routers import auth, users, events, groups, publications, chat, notifications, access
-from .config import settings
-from .db import Base, engine
+from .core.config import settings
+from .db.base import Base
+from .db.session import engine
 
 Base.metadata.create_all(bind=engine)
 
