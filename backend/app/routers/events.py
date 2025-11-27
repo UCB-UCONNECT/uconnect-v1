@@ -21,6 +21,11 @@ from ..schemas import EventResponse, EventCreate
 from ..db.session import get_db
 from ..dependencies import require_roles
 from .. import models, schemas
+from ..services import EventService
+
+
+def get_event_service(db: Session = Depends(get_db)) -> EventService:
+    return EventService(db)
 
 # User já importado acima
 
@@ -37,8 +42,8 @@ router = APIRouter(
 # Ideal para alimentar um calendário geral. Realiza a conversão dos objetos
 # `time` do banco para strings no formato "HH:MM:SS" para a resposta JSON.
 @router.get("/", response_model=List[schemas.EventResponse])
-def list_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    events = db.query(models.Event).offset(skip).limit(limit).all()
+def list_events(skip: int = 0, limit: int = 100, service: EventService = Depends(get_event_service)):
+    events = service.list_events(skip=skip, limit=limit)
 
     # A conversão manual é necessária para garantir que os objetos `time`
     # sejam serializados corretamente para JSON como strings.
@@ -66,8 +71,8 @@ def list_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 # Endpoint público que busca e retorna os detalhes de um único evento
 # com base no seu ID. Lança um erro 404 se o evento não for encontrado.
 @router.get("/{event_id}", response_model=schemas.EventResponse)
-def get_event(event_id: int, db: Session = Depends(get_db)):
-    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+def get_event(event_id: int, service: EventService = Depends(get_event_service)):
+    event = service.get_event_by_id(event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Evento não encontrado")
 
@@ -90,7 +95,7 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=schemas.EventResponse, status_code=status.HTTP_201_CREATED)
 def create_event(
     event_data: schemas.EventCreate,
-    db: Session = Depends(get_db),
+    service: EventService = Depends(get_event_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator", "teacher"]))
 ):
     start_time, end_time = None, None
@@ -103,23 +108,19 @@ def create_event(
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de hora inválido. Use HH:MM ou HH:MM - HH:MM")
 
-    timestamp_obj = datetime.combine(event_data.date, start_time or dt_time(0, 0))
-
-    new_event_db = models.Event(
+    # Chamar service para criar evento (inclui validações de negócio)
+    created = service.create_event(
         title=event_data.title,
         description=event_data.description,
-        timestamp=timestamp_obj,
-        eventDate=event_data.date,
-        startTime=start_time,
-        endTime=end_time,
-        academicGroupId=event_data.academicGroupId or event_data.local,
-        creatorId=current_user.id
+        creator_id=current_user.id,
+        scheduled_date=event_data.date,
+        academic_group_id=event_data.academicGroupId or event_data.local,
+        visibility=getattr(event_data, 'visibility', 'public'),
+        start_time=start_time,
+        end_time=end_time,
     )
-    db.add(new_event_db)
-    db.commit()
-    db.refresh(new_event_db)
 
-    return new_event_db # O Pydantic response_model lida com a conversão
+    return created
 
 # --- Rota: Atualizar um Evento Existente ---
 # Endpoint protegido para modificar um evento. Além da verificação de papel,
@@ -128,16 +129,9 @@ def create_event(
 def update_event(
     event_id: int,
     event_update: schemas.EventCreate,
-    db: Session = Depends(get_db),
+    service: EventService = Depends(get_event_service),
     current_user: User = Depends(require_roles(["admin", "coordinator", "teacher"]))
 ):
-    db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
-    if not db_event:
-        raise HTTPException(status_code=404, detail="Evento não encontrado")
-
-    if db_event.creatorId != current_user.id and current_user.role != models.UserRole.admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão negada para editar este evento")
-
     start_time, end_time = None, None
     if event_update.hora:
         try:
@@ -147,21 +141,18 @@ def update_event(
                 end_time = datetime.strptime(hora_parts[1], "%H:%M").time()
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de hora inválido. Use HH:MM ou HH:MM - HH:MM")
-    
-    timestamp_obj = datetime.combine(event_update.date, start_time or dt_time(0, 0))
 
-    db_event.title = event_update.title
-    db_event.description = event_update.description
-    db_event.timestamp = timestamp_obj
-    db_event.eventDate = event_update.date
-    db_event.startTime = start_time
-    db_event.endTime = end_time
-    db_event.academicGroupId = event_update.academicGroupId or event_update.local
-    
-    db.commit()
-    db.refresh(db_event)
+    update_payload = {
+        "title": event_update.title,
+        "description": event_update.description,
+        "scheduled_date": event_update.date,
+        "academic_group_id": event_update.academicGroupId or event_update.local,
+        "start_time": start_time,
+        "end_time": end_time,
+    }
 
-    return db_event
+    # Service irá validar permissões e aplicar update
+    return service.update_event(event_id, current_user, update_payload)
 
 # --- Rota: Excluir um Evento ---
 # Endpoint protegido para remover um evento do banco de dados. Utiliza as
@@ -170,19 +161,11 @@ def update_event(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_event(
     event_id: int,
-    db: Session = Depends(get_db),
+    service: EventService = Depends(get_event_service),
     current_user: User = Depends(require_roles(["admin", "coordinator", "teacher"]))
 ):
-    event_query = db.query(models.Event).filter(models.Event.id == event_id)
-    db_event = event_query.first()
-
-    if not db_event:
+    # Service trata verificação de permissão e deleção
+    result = service.delete_event(event_id, current_user)
+    if not result:
         raise HTTPException(status_code=404, detail="Evento não encontrado")
-    
-    if db_event.creatorId != current_user.id and current_user.role != models.UserRole.admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão negada para excluir este evento")
-    
-    event_query.delete(synchronize_session=False)
-    db.commit()
-    
     return Response(status_code=status.HTTP_204_NO_CONTENT)

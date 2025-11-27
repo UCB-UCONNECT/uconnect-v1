@@ -20,6 +20,11 @@ from ..core.security import get_password_hash
 from ..models import User, Session, UserRole, AccessStatus
 from ..schemas import UserResponse, UserCreate, UserUpdate, UserRoleUpdate
 from .. import models, schemas
+from ..services import UserService
+
+
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    return UserService(db)
 
 # --- Configuração do Roteador de Usuários ---
 # O `APIRouter` agrupa as rotas de gerenciamento de usuários sob o prefixo
@@ -30,36 +35,26 @@ router = APIRouter(prefix="/users", tags=["users"])
 # Endpoint público para o cadastro de novos usuários. Verifica se a matrícula
 # já existe e armazena a senha de forma segura (com hash).
 @router.post("/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.registration == user.registration).first()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuário já cadastrado")
-
-    hashed_password = get_password_hash(user.password)
-
-    db_user = models.User(
+def create_user(user: schemas.UserCreate, service: UserService = Depends(get_user_service)):
+    # Delegate creation logic to the service (handles validation and hashing)
+    created = service.create_user(
         registration=user.registration,
         name=user.name,
         email=user.email,
-        passwordHash=hashed_password,
+        password=user.password,
         role=user.role,
-        accessStatus=models.AccessStatus.active
     )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return created
 
 # --- Rota: Listar Todos os Usuários (Admin) ---
 # Endpoint protegido (somente Admin) que retorna uma lista paginada de todos
 # os usuários do sistema.
 @router.get("/", response_model=list[schemas.UserResponse])
 def read_users(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
+    skip: int = 0, limit: int = 100, service: UserService = Depends(get_user_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    users = db.query(models.User).offset(skip).limit(limit).all()
-    return users
+    return service.list_users(skip=skip, limit=limit)
 
 # --- Rota: Visualizar Próprio Perfil ---
 # Endpoint para que um usuário autenticado possa obter seus próprios dados.
@@ -74,54 +69,41 @@ def read_own_profile(current_user: models.User = Depends(get_current_active_user
 def update_own_profile(
     user_update: schemas.UserUpdate,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    service: UserService = Depends(get_user_service)
 ):
     update_data = user_update.dict(exclude_unset=True)
     update_data.pop("role", None)
     update_data.pop("accessStatus", None)
 
-    for field, value in update_data.items():
-        setattr(current_user, field, value)
-
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    # Delegate to service (it will validate unique constraints if needed)
+    updated = service.update_user(current_user.id, update_data)
+    return updated or current_user
 
 # --- Rota: Atualizar Outro Usuário (Admin) ---
 # Endpoint protegido (somente Admin) para atualizar os dados de qualquer
 # usuário no sistema.
 @router.put("/{user_id}", response_model=schemas.UserResponse)
 def update_user(
-    user_id: int, user_update: schemas.UserUpdate, db: Session = Depends(get_db),
+    user_id: int, user_update: schemas.UserUpdate, service: UserService = Depends(get_user_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
     update_data = user_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_user, field, value)
-    
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    updated = service.update_user(user_id, update_data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return updated
 
 # --- Rota: Deletar um Usuário (Admin) ---
 # Endpoint protegido (somente Admin) para remover um usuário. Também remove
 # todas as sessões ativas associadas a esse usuário.
 @router.delete("/{user_id}")
 def delete_user(
-    user_id: int, db: Session = Depends(get_db),
+    user_id: int, service: UserService = Depends(get_user_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
+    deleted = service.delete_user(user_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-
-    db.query(models.Session).filter(models.Session.userId == db_user.id).delete()
-    db.delete(db_user)
-    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # --- Rota: Atualizar Status de Acesso (Admin) ---
@@ -129,19 +111,13 @@ def delete_user(
 # (ativo, inativo, suspenso). Impede que um admin altere o próprio status.
 @router.patch("/{user_id}/status", response_model=schemas.UserResponse)
 def update_user_access_status(
-    user_id: int, status_update: dict, db: Session = Depends(get_db),
+    user_id: int, status_update: dict, service: UserService = Depends(get_user_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
+    updated = service.update_user_status(user_id, current_user, status_update.get("accessStatus"))
+    if not updated:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    if db_user.id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Não é permitido alterar o próprio status por esta rota.")
-
-    db_user.accessStatus = status_update.accessStatus
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return updated
 
 # --- Rota: Atualizar Papel do Usuário (Admin/Coordenador) ---
 # Endpoint com lógica de permissão detalhada para alterar o papel de um
@@ -149,30 +125,10 @@ def update_user_access_status(
 # coordenadores atribuam papéis de nível igual ou superior ao seu.
 @router.patch("/{user_id}/role", response_model=schemas.UserResponse)
 def update_user_role(
-    user_id: int, role_update: schemas.UserRoleUpdate, db: Session = Depends(get_db),
+    user_id: int, role_update: schemas.UserRoleUpdate, service: UserService = Depends(get_user_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
+    updated = service.update_user_role(user_id, current_user, role_update.role)
+    if not updated:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
-    if db_user.id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Não é permitido alterar o próprio papel.")
-    if db_user.role == models.UserRole.admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Não é permitido alterar o papel de um administrador.")
-
-    valid_roles = [role.value for role in models.UserRole]
-    if role_update.role not in valid_roles:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"O papel '{role_update.role}' não é válido.")
-
-    if current_user.role == models.UserRole.coordinator:
-        if role_update.role in [models.UserRole.admin.value, models.UserRole.coordinator.value]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Coordenadores não têm permissão para atribuir papéis de administrador ou coordenador."
-            )
-    
-    db_user.role = role_update.role
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return updated

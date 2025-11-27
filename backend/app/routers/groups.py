@@ -17,6 +17,11 @@ from ..dependencies import require_roles
 from ..models import User, AcademicGroup
 from ..schemas import AcademicGroupResponse, AcademicGroupCreate, AcademicGroupUpdate, AcademicGroupDetailResponse
 from .. import models, schemas
+from ..services import AcademicGroupService
+
+
+def get_academic_group_service(db: Session = Depends(get_db)) -> AcademicGroupService:
+    return AcademicGroupService(db)
 
 # --- Configuração do Roteador de Grupos ---
 # O `APIRouter` agrupa as rotas de gerenciamento de grupos sob o prefixo
@@ -31,24 +36,21 @@ router = APIRouter(
 @router.post("/", response_model=schemas.AcademicGroupResponse, status_code=status.HTTP_201_CREATED)
 def create_group(
     group: schemas.AcademicGroupCreate,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    db_group = models.AcademicGroup(**group.dict())
-    db.add(db_group)
-    db.commit()
-    db.refresh(db_group)
-    return db_group
+    created = service.create_group(group.dict())
+    return created
 
 # --- Rota: Listar Todos os Grupos Acadêmicos ---
 # Endpoint protegido (Admin/Coordenador) que retorna uma lista de todos os
 # grupos acadêmicos cadastrados.
 @router.get("/", response_model=list[schemas.AcademicGroupResponse])
 def get_all_groups(
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
-    return db.query(models.AcademicGroup).all()
+    return service.list_groups()
 
 # --- Rota: Obter Detalhes de um Grupo ---
 # Endpoint protegido (Admin/Coordenador/Professor) que retorna as informações
@@ -56,10 +58,10 @@ def get_all_groups(
 @router.get("/{group_id}", response_model=schemas.AcademicGroupDetailResponse)
 def get_group_details(
     group_id: int,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator", "teacher"]))
 ):
-    db_group = db.query(models.AcademicGroup).filter(models.AcademicGroup.id == group_id).first()
+    db_group = service.get_group(group_id)
     if not db_group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
     return db_group
@@ -71,35 +73,26 @@ def get_group_details(
 def update_group(
     group_id: int,
     group_update: schemas.AcademicGroupUpdate,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    db_group = db.query(models.AcademicGroup).filter(models.AcademicGroup.id == group_id).first()
-    if not db_group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
-    
     update_data = group_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_group, key, value)
-        
-    db.commit()
-    db.refresh(db_group)
-    return db_group
+    updated = service.update_group(group_id, update_data)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
+    return updated
 
 # --- Rota: Deletar um Grupo Acadêmico ---
 # Endpoint protegido (somente Admin) para remover um grupo do banco de dados.
 @router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_group(
     group_id: int,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin"]))
 ):
-    db_group = db.query(models.AcademicGroup).filter(models.AcademicGroup.id == group_id).first()
-    if not db_group:
+    deleted = service.delete_group(group_id)
+    if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
-    
-    db.delete(db_group)
-    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # --- Rota: Adicionar Usuário a um Grupo ---
@@ -109,24 +102,17 @@ def delete_group(
 def add_user_to_group(
     group_id: int,
     user_id: int,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
-    db_group = db.query(models.AcademicGroup).filter(models.AcademicGroup.id == group_id).first()
-    if not db_group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
-    
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
+    group = service.add_user_to_group(group_id, user_id)
+    if group is None:
+        # determine if group or user not found
+        # check existence
+        if not service.get_group(group_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
-
-    if db_user in db_group.users:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuário já pertence a este grupo")
-
-    db_group.users.append(db_user)
-    db.commit()
-    db.refresh(db_group)
-    return db_group
+    return group
 
 # --- Rota: Remover Usuário de um Grupo ---
 # Endpoint protegido (Admin/Coordenador) para desassociar um usuário de um
@@ -135,20 +121,14 @@ def add_user_to_group(
 def remove_user_from_group(
     group_id: int,
     user_id: int,
-    db: Session = Depends(get_db),
+    service: AcademicGroupService = Depends(get_academic_group_service),
     current_user: models.User = Depends(require_roles(["admin", "coordinator"]))
 ):
-    db_group = db.query(models.AcademicGroup).filter(models.AcademicGroup.id == group_id).first()
-    if not db_group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
-    
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
-
-    if db_user not in db_group.users:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não pertence a este grupo")
-
-    db_group.users.remove(db_user)
-    db.commit()
+    removed = service.remove_user_from_group(group_id, user_id)
+    if not removed:
+        # check why
+        if not service.get_group(group_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
+        # if group exists but removal failed, user likely not found or not member
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado ou não pertence a este grupo")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

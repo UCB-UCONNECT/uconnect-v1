@@ -9,6 +9,7 @@ from .. import models, schemas
 from ..db.session import get_db
 from ..core.jwt import decode_token
 from ..dependencies import get_current_active_user
+from ..services import ConversationService, UserService
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -87,13 +88,15 @@ async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Dep
         manager.disconnect(websocket, user.id)
 
 async def notify_new_message(chat_id: int, sender_id: int, content: str, db: Session):
-    conversation = db.query(models.Conversation).filter(models.Conversation.id == chat_id).first()
+    conv_service = ConversationService(db)
+    conversation = conv_service.get_conversation(chat_id)
     if not conversation:
         return
-    
+
     recipient_ids = [p.id for p in conversation.participants if p.id != sender_id]
-    sender = db.query(models.User).filter(models.User.id == sender_id).first()
-    
+    user_service = UserService(db)
+    sender = user_service.get_user_by_id(sender_id)
+
     notification = {
         "type": "chat_message",
         "chat_id": chat_id,
@@ -101,13 +104,14 @@ async def notify_new_message(chat_id: int, sender_id: int, content: str, db: Ses
         "content": content[:50] + "..." if len(content) > 50 else content,
         "timestamp": datetime.utcnow().isoformat()
     }
-    
+
     await manager.broadcast_to_users(notification, recipient_ids)
 
 async def notify_new_announcement(post_id: int, title: str, author_name: str, db: Session):
-    users = db.query(models.User).filter(models.User.accessStatus == models.AccessStatus.active).all()
+    user_service = UserService(db)
+    users = user_service.repo.find_all_by_filter(accessStatus=models.AccessStatus.active)
     user_ids = [u.id for u in users]
-    
+
     notification = {
         "type": "announcement",
         "post_id": post_id,
@@ -115,5 +119,5 @@ async def notify_new_announcement(post_id: int, title: str, author_name: str, db
         "author_name": author_name,
         "timestamp": datetime.utcnow().isoformat()
     }
-    
+
     await manager.broadcast_to_users(notification, user_ids)

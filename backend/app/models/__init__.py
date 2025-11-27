@@ -57,6 +57,39 @@ class User(Base):
         Index("ix_users_email", "email"),
     )
 
+    def __init__(self, **kwargs):
+        # Mapear nomes em snake_case (usados nos testes) para os atributos camelCase
+        mapping = {
+            'hashed_password': 'passwordHash',
+            'access_status': 'accessStatus',
+            'created_at': 'createdAt',
+            'updated_at': 'updatedAt',
+            'registration': 'registration',
+            'name': 'name',
+            'email': 'email',
+            'role': 'role'
+        }
+
+        for k in list(kwargs.keys()):
+            if k in mapping and mapping[k] != k:
+                kwargs[mapping[k]] = kwargs.pop(k)
+
+        super().__init__(**kwargs)
+
+# Compatibilidade: definir aliases MAIÚSCULOS para os Enums (código legado/testes)
+UserRole.STUDENT = UserRole.student
+UserRole.TEACHER = UserRole.teacher
+UserRole.COORDINATOR = UserRole.coordinator
+UserRole.ADMIN = UserRole.admin
+
+AccessStatus.ACTIVE = AccessStatus.active
+AccessStatus.INACTIVE = AccessStatus.inactive
+AccessStatus.SUSPENDED = AccessStatus.suspended
+
+ConversationType.DIRECT = ConversationType.direct
+ConversationType.GROUP = ConversationType.group
+ConversationType.SUPPORT = ConversationType.support
+
 class AccessManager(Base):
     __tablename__ = "AccessManager"
 
@@ -80,11 +113,72 @@ class Event(Base):
     description = Column(Text, nullable=True)
     timestamp = Column(DateTime, nullable=False)
     eventDate = Column(Date, nullable=False)
+    visibility = Column(String(50), nullable=True)
     startTime = Column(Time, nullable=True)
     endTime = Column(Time, nullable=True)
     academicGroupId = Column(String(50), nullable=True)
     creatorId = Column(Integer, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
     creator = relationship("User", back_populates="events_created")
+    
+    def __init__(self, **kwargs):
+        # Mapear nomes em snake_case (usados nos testes) para os atributos camelCase
+        mapping = {
+            'creator_id': 'creatorId',
+            'academic_group_id': 'academicGroupId',
+            'scheduled_date': 'eventDate',
+            'created_at': 'timestamp',
+            'start_time': 'startTime',
+            'end_time': 'endTime',
+            'title': 'title',
+            'description': 'description'
+        }
+
+        for k in list(kwargs.keys()):
+            if k in mapping and mapping[k] != k:
+                kwargs[mapping[k]] = kwargs.pop(k)
+
+        super().__init__(**kwargs)
+
+    # Propriedades compatíveis com snake_case usadas nos testes
+    @property
+    def creator_id(self):
+        return self.creatorId
+
+    @creator_id.setter
+    def creator_id(self, value):
+        self.creatorId = value
+
+    @property
+    def scheduled_date(self):
+        return self.eventDate
+
+    @scheduled_date.setter
+    def scheduled_date(self, value):
+        self.eventDate = value
+
+    @property
+    def created_at(self):
+        return self.timestamp
+
+    @created_at.setter
+    def created_at(self, value):
+        self.timestamp = value
+
+    @property
+    def start_time(self):
+        return self.startTime
+
+    @start_time.setter
+    def start_time(self, value):
+        self.startTime = value
+
+    @property
+    def end_time(self):
+        return self.endTime
+
+    @end_time.setter
+    def end_time(self, value):
+        self.endTime = value
     
     __table_args__ = (
         Index("idx_event_date", "eventDate"),

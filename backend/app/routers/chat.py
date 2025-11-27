@@ -9,23 +9,31 @@ from ..schemas import Chat, Message as MessageSchema, MessageCreate, UserSimple,
 from .. import utils, models, schemas
 from ..db.session import get_db
 from ..dependencies import get_current_user
+from ..services import ConversationService, MessageService
 from .notifications import notify_new_message
+
+
+def get_conversation_service(db: Session = Depends(get_db)) -> ConversationService:
+    return ConversationService(db)
+
+
+def get_message_service(db: Session = Depends(get_db)) -> MessageService:
+    return MessageService(db)
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.get("/", response_model=List[schemas.Chat])
 @router.get("/conversations", response_model=List[schemas.Chat])
 def get_user_conversations(
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    user_chats = db.query(models.Conversation).filter(
-        models.Conversation.participants.any(id=current_user.id)
-    ).all()
+    user_chats = conversation_service.list_by_participant(current_user.id)
 
     result = []
     for chat in user_chats:
-        channel = db.query(models.Channel).filter(
+        channel = conversation_service.db.query(models.Channel).filter(
             models.Channel.conversationId == chat.id
         ).first()
 
@@ -37,7 +45,7 @@ def get_user_conversations(
 
             if subchannel:
                 last_row = (
-                    db.query(models.Message, models.User.name.label("author_name"))
+                    message_service.db.query(models.Message, models.User.name.label("author_name"))
                     .join(models.User, models.User.id == models.Message.authorId, isouter=True)
                     .filter(models.Message.subchannelId == subchannel.id)
                     .order_by(desc(models.Message.timestamp))
@@ -68,10 +76,11 @@ def get_user_conversations(
 @router.get("/{chat_id}/messages", response_model=List[schemas.Message])
 def get_chat_messages(
     chat_id: int,
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    chat = db.query(models.Conversation).filter(models.Conversation.id == chat_id).first()
+    chat = conversation_service.get_conversation(chat_id)
     if not chat:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversa não encontrada")
 
@@ -79,16 +88,15 @@ def get_chat_messages(
     if current_user.id not in participant_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
 
-    channel = db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
+    channel = conversation_service.db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
     if not channel:
         return []
-
-    subchannel = db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
+    subchannel = conversation_service.db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
     if not subchannel:
         return []
 
     rows = (
-        db.query(models.Message, models.User.name.label("author_name"))
+        message_service.db.query(models.Message, models.User.name.label("author_name"))
         .join(models.User, models.User.id == models.Message.authorId, isouter=True)
         .filter(models.Message.subchannelId == subchannel.id)
         .order_by(models.Message.timestamp.asc())
@@ -106,23 +114,24 @@ def get_chat_messages(
         for (m, author_name) in rows
     ]
 
-    db.query(models.Message).filter(
+    message_service.db.query(models.Message).filter(
         models.Message.subchannelId == subchannel.id,
         models.Message.authorId != current_user.id,
         models.Message.isRead == False
     ).update({"isRead": True})
-    db.commit()
+    message_service.db.commit()
 
     return messages
 
 @router.post("/{chat_id}/messages", response_model=schemas.Message, status_code=status.HTTP_201_CREATED)
-async def send_message(
+def send_message(
     chat_id: int,
     message: schemas.MessageCreate,
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    chat = db.query(models.Conversation).filter(models.Conversation.id == chat_id).first()
+    chat = conversation_service.get_conversation(chat_id)
     if not chat:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversa não encontrada")
 
@@ -130,31 +139,31 @@ async def send_message(
     if current_user.id not in participant_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
 
-    channel = db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
+    channel = conversation_service.db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
     if not channel:
         channel = models.Channel(name=f"Channel-{chat_id}", conversationId=chat_id)
-        db.add(channel)
-        db.flush()
+        conversation_service.db.add(channel)
+        conversation_service.db.flush()
 
-    subchannel = db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
+    subchannel = conversation_service.db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
     if not subchannel:
         subchannel = models.Subchannel(name="Geral", parentChannelId=channel.id)
-        db.add(subchannel)
-        db.flush()
+        conversation_service.db.add(subchannel)
+        conversation_service.db.flush()
 
-    new_message = models.Message(
-        content=message.content,
-        subchannelId=subchannel.id,
-        authorId=current_user.id,
-        timestamp=datetime.utcnow(),
-        isRead=False
-    )
-    db.add(new_message)
+    payload = {
+        "content": message.content,
+        "subchannelId": subchannel.id,
+        "authorId": current_user.id,
+        "timestamp": datetime.utcnow(),
+        "isRead": False
+    }
+    new_message = message_service.send_message(payload)
     chat.updatedAt = datetime.utcnow()
-    db.commit()
-    db.refresh(new_message)
+    conversation_service.db.commit()
+    message_service.db.refresh(new_message)
 
-    await notify_new_message(chat_id, current_user.id, message.content, db)
+    await notify_new_message(chat_id, current_user.id, message.content, message_service.db)
 
     return schemas.Message(
         id=new_message.id,
@@ -167,10 +176,11 @@ async def send_message(
 @router.post("/{chat_id}/read", status_code=status.HTTP_204_NO_CONTENT)
 def mark_messages_as_read(
     chat_id: int,
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    conversation = db.query(models.Conversation).filter(models.Conversation.id == chat_id).first()
+    conversation = conversation_service.get_conversation(chat_id)
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversa não encontrada")
 
@@ -178,30 +188,30 @@ def mark_messages_as_read(
     if current_user.id not in participant_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
 
-    channel = db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
+    channel = conversation_service.db.query(models.Channel).filter(models.Channel.conversationId == chat_id).first()
     if not channel:
         return
 
-    subchannel = db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
+    subchannel = conversation_service.db.query(models.Subchannel).filter(models.Subchannel.parentChannelId == channel.id).first()
     if not subchannel:
         return
 
-    db.query(models.Message).filter(
+    message_service.db.query(models.Message).filter(
         models.Message.subchannelId == subchannel.id,
         models.Message.authorId != current_user.id,
         models.Message.isRead == False
     ).update({"isRead": True})
 
-    db.commit()
+    message_service.db.commit()
     return
 
 @router.post("/", response_model=schemas.Chat, status_code=status.HTTP_201_CREATED)
 def create_conversation(
     chat_data: schemas.ChatCreate,
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    participants = db.query(models.User).filter(models.User.id.in_(chat_data.participant_ids)).all()
+    participants = conversation_service.db.query(models.User).filter(models.User.id.in_(chat_data.participant_ids)).all()
 
     if len(participants) != len(chat_data.participant_ids):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Participantes não encontrados")
@@ -218,17 +228,17 @@ def create_conversation(
     conv_type = models.ConversationType.direct if len(participants) == 2 else models.ConversationType.group
 
     new_conversation = models.Conversation(title=title, type=conv_type, participants=participants)
-    db.add(new_conversation)
-    db.flush()
+    conversation_service.db.add(new_conversation)
+    conversation_service.db.flush()
 
     channel = models.Channel(name=f"Channel-{new_conversation.id}", conversationId=new_conversation.id)
-    db.add(channel)
-    db.flush()
+    conversation_service.db.add(channel)
+    conversation_service.db.flush()
 
     subchannel = models.Subchannel(name="Geral", parentChannelId=channel.id)
-    db.add(subchannel)
-    db.commit()
-    db.refresh(new_conversation)
+    conversation_service.db.add(subchannel)
+    conversation_service.db.commit()
+    conversation_service.db.refresh(new_conversation)
 
     return schemas.Chat(
         id=new_conversation.id,
@@ -240,10 +250,10 @@ def create_conversation(
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
     chat_id: int,
-    db: Session = Depends(get_db),
+    conversation_service: ConversationService = Depends(get_conversation_service),
     current_user: models.User = Depends(get_current_user)
 ):
-    conversation = db.query(models.Conversation).filter(models.Conversation.id == chat_id).first()
+    conversation = conversation_service.get_conversation(chat_id)
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversa não encontrada")
 
@@ -251,6 +261,7 @@ def delete_conversation(
     if current_user.id not in participant_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
 
-    db.delete(conversation)
-    db.commit()
+    success = conversation_service.delete_conversation(chat_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Falha ao deletar conversa")
     return

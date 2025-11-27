@@ -9,16 +9,19 @@ class UserRole(str, enum.Enum):
     teacher = "teacher"
     coordinator = "coordinator"
     admin = "admin"
+    # NOTE: não definir aliases MAIÚSCULOS aqui — serão definidos após a classe
 
 class AccessStatus(str, enum.Enum):
     active = "active"
     inactive = "inactive"
     suspended = "suspended"
+    # NOTE: aliases MAIÚSCULOS serão definidos após a classe
 
 class ConversationType(str, enum.Enum):
     direct = "direct"
     group = "group"
     support = "support"
+    # NOTE: aliases MAIÚSCULOS serão definidos após a classe
 
 academic_group_user_association = Table('AcademicGroup_User', Base.metadata,
     Column('groupId', Integer, ForeignKey('AcademicGroup.id'), primary_key=True),
@@ -56,6 +59,20 @@ class User(Base):
         Index("ix_users_registration", "registration"),
         Index("ix_users_email", "email"),
     )
+
+# Compatibilidade: definir aliases MAIÚSCULOS para os Enums (código legado/testes)
+UserRole.STUDENT = UserRole.student
+UserRole.TEACHER = UserRole.teacher
+UserRole.COORDINATOR = UserRole.coordinator
+UserRole.ADMIN = UserRole.admin
+
+AccessStatus.ACTIVE = AccessStatus.active
+AccessStatus.INACTIVE = AccessStatus.inactive
+AccessStatus.SUSPENDED = AccessStatus.suspended
+
+ConversationType.DIRECT = ConversationType.direct
+ConversationType.GROUP = ConversationType.group
+ConversationType.SUPPORT = ConversationType.support
 
 class AccessManager(Base):
     __tablename__ = "AccessManager"
