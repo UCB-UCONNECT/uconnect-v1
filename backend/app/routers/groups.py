@@ -14,7 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from ..db.session import get_db
 from ..dependencies import require_roles
-from .. import schemas, models
+from ..models import User, AcademicGroup
+from ..schemas import AcademicGroupResponse, AcademicGroupCreate, AcademicGroupUpdate, AcademicGroupDetailResponse
+from .. import models, schemas
 
 # --- Configuração do Roteador de Grupos ---
 # O `APIRouter` agrupa as rotas de gerenciamento de grupos sob o prefixo

@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 from ..db.session import get_db
 from ..dependencies import require_roles, get_current_active_user
 from ..core.security import get_password_hash
+from ..models import User, Session, UserRole, AccessStatus
+from ..schemas import UserResponse, UserCreate, UserUpdate, UserRoleUpdate
 from .. import models, schemas
 
 # --- Configuração do Roteador de Usuários ---

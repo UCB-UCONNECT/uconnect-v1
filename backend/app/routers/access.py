@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from ..db.session import get_db
 from ..dependencies import require_roles
+from ..models import AccessManager, User
+from ..schemas import AccessManagerResponse, AccessManagerCreate, AccessManagerUpdate
 from .. import models, schemas
 
 router = APIRouter(

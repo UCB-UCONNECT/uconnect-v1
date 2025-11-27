@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, Set, List
 import json
 from datetime import datetime
+from ..models import User, AccessStatus, Conversation
 from .. import models, schemas
 from ..db.session import get_db
 from ..core.jwt import decode_token

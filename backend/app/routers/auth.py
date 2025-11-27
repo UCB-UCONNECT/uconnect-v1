@@ -19,7 +19,8 @@ from ..db.session import get_db
 from ..dependencies import oauth2_scheme
 from ..core.security import verify_password
 from ..core.jwt import create_access_token
-from .. import models
+from ..models import User, AccessStatus, Session
+from .. import models, schemas
 
 # --- Configuração do Roteador e Modelos de Dados ---
 # O `APIRouter` agrupa as rotas de autenticação sob o prefixo `/auth`.

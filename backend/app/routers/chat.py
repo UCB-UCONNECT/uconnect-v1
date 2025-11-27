@@ -4,7 +4,9 @@ from sqlalchemy import desc
 from typing import List
 from datetime import datetime
 
-from .. import models, schemas, utils
+from ..models import Conversation, Channel, Subchannel, Message, User, ConversationType
+from ..schemas import Chat, Message as MessageSchema, MessageCreate, UserSimple, ChatCreate
+from .. import utils, models, schemas
 from ..db.session import get_db
 from ..dependencies import get_current_user
 from .notifications import notify_new_message

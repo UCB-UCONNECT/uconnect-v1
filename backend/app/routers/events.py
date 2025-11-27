@@ -16,11 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, time as dt_time
-from .. import models, schemas
+from ..models import Event, User, UserRole
+from ..schemas import EventResponse, EventCreate
 from ..db.session import get_db
 from ..dependencies import require_roles
+from .. import models, schemas
 
-User = models.User
+# User já importado acima
 
 # --- Configuração do Roteador de Eventos ---
 # O `APIRouter` agrupa todas as rotas relacionadas a eventos sob o

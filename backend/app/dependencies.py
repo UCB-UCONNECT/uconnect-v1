@@ -9,7 +9,7 @@ centralizando as validações de usuário em um único lugar.
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from . import models
+from .models import User, AccessStatus
 from .db.session import get_db
 from .core.jwt import decode_token
 
@@ -25,7 +25,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # 2. Decodifica o token JWT para obter o payload (o ID do usuário).
 # 3. Busca o usuário correspondente no banco de dados.
 # 4. Retorna o objeto do usuário ou lança uma exceção HTTP 401 se qualquer passo falhar.
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
@@ -40,7 +40,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user_id is None:
         raise credentials_exception
 
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
 
@@ -51,8 +51,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 # Uma dependência que utiliza `get_current_user` para primeiro obter o usuário
 # e depois verifica se o status de acesso dele é "ativo". Lança uma exceção
 # HTTP 400 se o usuário estiver inativo.
-async def get_current_active_user(current_user: models.User = Depends(get_current_user)) -> models.User:
-    if current_user.accessStatus != models.AccessStatus.active:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.accessStatus != AccessStatus.active:
         raise HTTPException(status_code=400, detail="Usuário inativo")
     return current_user
 
@@ -64,7 +64,7 @@ async def get_current_active_user(current_user: models.User = Depends(get_curren
 # lista de papéis permitidos. Lança uma exceção HTTP 403 (Forbidden) se a
 # permissão for negada. Isso permite um controle de acesso granular nas rotas.
 def require_roles(allowed_roles: list[str]):
-    async def role_checker(current_user: models.User = Depends(get_current_active_user)):
+    async def role_checker(current_user: User = Depends(get_current_active_user)):
         if current_user.role.value not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

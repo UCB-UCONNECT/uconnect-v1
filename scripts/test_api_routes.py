@@ -32,7 +32,7 @@ class APITester:
         
     def start_server(self):
         """Inicia o servidor uvicorn"""
-        print(f"{BLUE}🚀 Iniciando servidor uvicorn com reload...{NC}")
+        print(f"{BLUE}Iniciando servidor uvicorn com reload...{NC}")
         try:
             # Navegar para diretório raiz do projeto (pai do scripts/)
             project_root = Path(__file__).parent.parent
@@ -58,23 +58,23 @@ class APITester:
                 try:
                     response = requests.get(f"{self.base_url}/health", timeout=2)
                     if response.status_code == 200:
-                        print(f"{GREEN}✅ Servidor iniciado com sucesso!{NC}\n")
+                        print(f"{GREEN}Servidor iniciado com sucesso!{NC}\n")
                         return True
                 except:
                     if i < 4:
                         time.sleep(1)
             
-            print(f"{RED}❌ Falha ao conectar no servidor após 5 tentativas{NC}")
+            print(f"{RED}Falha ao conectar no servidor após 5 tentativas{NC}")
             return False
             
         except Exception as e:
-            print(f"{RED}❌ Erro ao iniciar servidor: {e}{NC}")
+            print(f"{RED}Erro ao iniciar servidor: {e}{NC}")
             return False
     
     def stop_server(self):
         """Para o servidor uvicorn"""
         if self.server_process:
-            print(f"\n{BLUE}🛑 Parando servidor...{NC}")
+            print(f"\n{BLUE}Parando servidor...{NC}")
             try:
                 os.killpg(os.getpgid(self.server_process.pid), signal.SIGTERM)
                 time.sleep(2)
@@ -124,7 +124,7 @@ class APITester:
         
         for method, endpoint, expected in tests:
             passed, msg = self.test_endpoint(method, endpoint, expected)
-            status = f"{GREEN}✅ PASS{NC}" if passed else f"{RED}❌ FAIL{NC}"
+            status = f"{GREEN}PASS{NC}" if passed else f"{RED}FAIL{NC}"
             print(f"  {status} - {msg}")
             if passed:
                 self.results["passed"] += 1
@@ -140,7 +140,7 @@ class APITester:
         
         for method, endpoint, expected in tests_auth:
             passed, msg = self.test_endpoint(method, endpoint, expected)
-            status = f"{GREEN}✅ PASS{NC}" if passed else f"{RED}❌ FAIL{NC}"
+            status = f"{GREEN}PASS{NC}" if passed else f"{RED}FAIL{NC}"
             print(f"  {status} - {msg}")
             if passed:
                 self.results["passed"] += 1
@@ -157,7 +157,7 @@ class APITester:
         
         for method, endpoint, expected in tests_public:
             passed, msg = self.test_endpoint(method, endpoint, expected)
-            status = f"{GREEN}✅ PASS{NC}" if passed else f"{RED}❌ FAIL{NC}"
+            status = f"{GREEN}PASS{NC}" if passed else f"{RED}FAIL{NC}"
             print(f"  {status} - {msg}")
             if passed:
                 self.results["passed"] += 1
@@ -175,7 +175,7 @@ class APITester:
         
         for method, endpoint, expected in tests_protected:
             passed, msg = self.test_endpoint(method, endpoint, expected)
-            status = f"{GREEN}✅ PASS{NC}" if passed else f"{RED}❌ FAIL{NC}"
+            status = f"{GREEN}PASS{NC}" if passed else f"{RED}FAIL{NC}"
             print(f"  {status} - {msg}")
             if passed:
                 self.results["passed"] += 1
@@ -187,17 +187,17 @@ class APITester:
         print(f"{CYAN}RESUMO DOS TESTES{NC}")
         print(f"{CYAN}{'='*70}{NC}")
         total = self.results["passed"] + self.results["failed"] + self.results["warnings"]
-        print(f"{GREEN}✅ Passou: {self.results['passed']}{NC}")
-        print(f"{RED}❌ Falhou: {self.results['failed']}{NC}")
-        print(f"{YELLOW}⚠️  Avisos: {self.results['warnings']}{NC}")
+        print(f"{GREEN}Passou: {self.results['passed']}{NC}")
+        print(f"{RED}Falhou: {self.results['failed']}{NC}")
+        print(f"{YELLOW}Avisos: {self.results['warnings']}{NC}")
         print(f"{CYAN}Total: {total} testes{NC}")
         print(f"{CYAN}{'='*70}{NC}\n")
         
         if self.results["failed"] == 0:
-            print(f"{GREEN}🎉 TODOS OS TESTES PASSARAM! Fase 1 validada com sucesso!{NC}\n")
+            print(f"{GREEN}TODOS OS TESTES PASSARAM! Fase 1 validada com sucesso!{NC}\n")
             return 0
         else:
-            print(f"{RED}⚠️  Alguns testes falharam. Verifique os detalhes acima.{NC}\n")
+            print(f"{RED}Alguns testes falharam. Verifique os detalhes acima.{NC}\n")
             return 1
 
 def main():

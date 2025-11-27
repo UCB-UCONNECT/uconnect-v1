@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..db.session import get_db
 from ..dependencies import require_roles, get_current_active_user
-from .. import schemas, models
+from ..models import Post, Announcement, UserRole
+from ..schemas import PostResponse, PostCreate, PostUpdate, AnnouncementResponse, AnnouncementCreate, AnnouncementUpdate
+from .. import models, schemas
 from .notifications import notify_new_announcement
 
 # Roteador principal que será exportado e importado no main.py
