@@ -140,13 +140,12 @@ class EventService:
         event_data = {
             "title": title.strip(),
             "description": description.strip() if description else "",
-            "creator_id": creator_id,
-            "scheduled_date": scheduled_date,
-            "academic_group_id": academic_group_id,
-            "start_time": start_time,
-            "end_time": end_time,
-            "visibility": visibility,
-            "created_at": datetime.now()
+            "timestamp": datetime.now(),
+            "eventDate": scheduled_date.date() if isinstance(scheduled_date, datetime) else scheduled_date,
+            "startTime": start_time,
+            "endTime": end_time,
+            "academicGroupId": academic_group_id,
+            "creatorId": creator_id
         }
         
         return self.repo.create(event_data)
@@ -296,7 +295,7 @@ class EventService:
             )
         
         # Validar autorização (apenas criador)
-        if event.creator_id != current_user.id:
+        if event.creatorId != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Apenas o criador do evento pode editá-lo"
@@ -335,7 +334,7 @@ class EventService:
             )
         
         # Validar autorização (criador OU admin)
-        is_creator = event.creator_id == current_user.id
+        is_creator = event.creatorId == current_user.id
         is_admin = current_user.role == UserRole.ADMIN
         
         if not is_creator and not is_admin:
@@ -485,4 +484,4 @@ class EventService:
             is_mine = service.event_belongs_to_user(event_id=5, user_id=1)
         """
         event = self.repo.get_by_id(event_id)
-        return event is not None and event.creator_id == user_id
+        return event is not None and event.creatorId == user_id

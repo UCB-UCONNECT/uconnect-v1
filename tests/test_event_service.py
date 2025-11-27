@@ -110,7 +110,7 @@ class TestEventRepository:
         assert event is not None
         assert event.id is not None
         assert event.title == "Seminário de IA"
-        assert event.creator_id == sample_user.id
+        assert event.creatorId == sample_user.id
     
     def test_get_event_by_id(self, test_db: Session, sample_user: User):
         """Testa busca de evento por ID."""
@@ -172,7 +172,7 @@ class TestEventRepository:
         events = repo.get_by_creator(sample_user.id)
         
         assert len(events) == 2
-        assert all(e.creator_id == sample_user.id for e in events)
+        assert all(e.creatorId == sample_user.id for e in events)
     
     def test_get_upcoming_events(self, test_db: Session, sample_user: User):
         """Testa busca de eventos próximos."""
@@ -310,7 +310,7 @@ class TestEventService:
         assert event is not None
         assert event.id is not None
         assert event.title == "Seminário"
-        assert event.creator_id == sample_user.id
+        assert event.creatorId == sample_user.id
     
     def test_create_event_empty_title(self, test_db: Session, sample_user: User):
         """Testa criação de evento com título vazio."""

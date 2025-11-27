@@ -6,7 +6,7 @@ from datetime import datetime
 
 from ..models import Conversation, Channel, Subchannel, Message, User, ConversationType
 from ..schemas import Chat, Message as MessageSchema, MessageCreate, UserSimple, ChatCreate
-from .. import utils, models, schemas
+from .. import models, schemas
 from ..db.session import get_db
 from ..dependencies import get_current_user
 from ..services import ConversationService, MessageService
@@ -163,7 +163,8 @@ def send_message(
     conversation_service.db.commit()
     message_service.db.refresh(new_message)
 
-    await notify_new_message(chat_id, current_user.id, message.content, message_service.db)
+    # notify_new_message é opcional e será chamada em background em versão assíncrona futura
+    # await notify_new_message(chat_id, current_user.id, message.content, message_service.db)
 
     return schemas.Message(
         id=new_message.id,
