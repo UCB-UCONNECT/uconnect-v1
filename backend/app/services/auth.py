@@ -21,7 +21,8 @@ class AuthService:
         if user.accessStatus != models.AccessStatus.active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso inativo")
 
-        token, expire = create_access_token(data={"sub": user.registration})
+        # O token deve carregar o ID do usuário em 'sub' para compatibilidade com get_current_user
+        token, expire = create_access_token(data={"sub": str(user.id)})
         db_session = models.Session(token=token, userId=user.id, startDate=datetime.utcnow(), expirationDate=expire)
         self.db.add(db_session)
         self.db.commit()

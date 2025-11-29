@@ -51,7 +51,6 @@ def list_events(skip: int = 0, limit: int = 100, service: EventService = Depends
     for event in events:
         start_time_str = event.startTime.strftime("%H:%M:%S") if event.startTime else None
         end_time_str = event.endTime.strftime("%H:%M:%S") if event.endTime else None
-        
         event_dict = {
             "id": event.id,
             "title": event.title,
@@ -60,11 +59,10 @@ def list_events(skip: int = 0, limit: int = 100, service: EventService = Depends
             "eventDate": event.eventDate,
             "startTime": start_time_str,
             "endTime": end_time_str,
-            "academicGroupId": event.academicGroupId,
+            "academicGroupId": str(event.academicGroupId) if event.academicGroupId is not None else None,
             "creatorId": event.creatorId,
         }
         result.append(event_dict)
-    
     return result
 
 # --- Rota: Obter um Evento Específico ---
@@ -84,7 +82,7 @@ def get_event(event_id: int, service: EventService = Depends(get_event_service))
         "eventDate": event.eventDate,
         "startTime": str(event.startTime) if event.startTime else None,
         "endTime": str(event.endTime) if event.endTime else None,
-        "academicGroupId": event.academicGroupId,
+        "academicGroupId": str(event.academicGroupId) if event.academicGroupId is not None else None,
         "creatorId": event.creatorId,
     }
 

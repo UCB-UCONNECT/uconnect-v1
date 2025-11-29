@@ -26,6 +26,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # 3. Busca o usuário correspondente no banco de dados.
 # 4. Retorna o objeto do usuário ou lança uma exceção HTTP 401 se qualquer passo falhar.
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    logger.info(f"[AUTH] Token recebido: {token}")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
@@ -33,15 +36,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
 
     payload = decode_token(token)
+    logger.info(f"[AUTH] Payload decodificado: {payload}")
     if payload is None:
+        logger.warning("[AUTH] Falha ao decodificar token JWT.")
         raise credentials_exception
 
     user_id: str = payload.get("sub")
+    logger.info(f"[AUTH] user_id extraído do token: {user_id}")
     if user_id is None:
+        logger.warning("[AUTH] Token JWT sem campo 'sub'.")
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == user_id).first()
+    logger.info(f"[AUTH] Usuário encontrado: {user}")
     if user is None:
+        logger.warning(f"[AUTH] Nenhum usuário encontrado para o id: {user_id}")
         raise credentials_exception
 
     return user
@@ -52,7 +61,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 # e depois verifica se o status de acesso dele é "ativo". Lança uma exceção
 # HTTP 400 se o usuário estiver inativo.
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    logger.info(f"[AUTH] Verificando status do usuário: {current_user.id} ({current_user.accessStatus})")
     if current_user.accessStatus != AccessStatus.active:
+        logger.warning(f"[AUTH] Usuário inativo: {current_user.id}")
         raise HTTPException(status_code=400, detail="Usuário inativo")
     return current_user
 
@@ -65,7 +78,11 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 # permissão for negada. Isso permite um controle de acesso granular nas rotas.
 def require_roles(allowed_roles: list[str]):
     async def role_checker(current_user: User = Depends(get_current_active_user)):
+        import logging
+        logger = logging.getLogger("uvicorn.error")
+        logger.info(f"[AUTH] Verificando papel do usuário: {current_user.id} ({current_user.role.value}) | Permitidos: {allowed_roles}")
         if current_user.role.value not in allowed_roles:
+            logger.warning(f"[AUTH] Permissão negada para usuário: {current_user.id} ({current_user.role.value})")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Permissão negada. Acesso não autorizado."

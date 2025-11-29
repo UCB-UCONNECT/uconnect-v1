@@ -1,6 +1,6 @@
 # ---------------- ROTAS DE AUTENTICAÇÃO ---------------- #
 """
-Este arquivo (routers/auth.py) define os endpoints da API relacionados à
+Aqui definimos os endpoints da API relacionados à
 autenticação de usuários. Ele gerencia o ciclo de vida da sessão de um
 usuário.
 

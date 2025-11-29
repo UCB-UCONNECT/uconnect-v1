@@ -24,7 +24,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.app.models import Event, User, UserRole
+from backend.app.models import Event, User, UserRole, AcademicGroup
 from backend.app.repositories.event import EventRepository
 from backend.app.schemas import EventCreate, EventUpdate
 
@@ -109,8 +109,10 @@ class EventService:
                 detail="Título do evento não pode estar vazio"
             )
         
-        # Validação: data no futuro
-        if scheduled_date <= datetime.now():
+        # Validação: data no futuro (normaliza para date)
+        now_date = datetime.now().date()
+        sched_date = scheduled_date.date() if isinstance(scheduled_date, datetime) else scheduled_date
+        if sched_date <= now_date:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Data do evento deve estar no futuro"
@@ -126,22 +128,34 @@ class EventService:
         
         # Validação: grupo académico existe (se fornecido)
         if academic_group_id:
-            from backend.app.models import AcademicGroup
-            group = self.db.query(AcademicGroup).filter(
-                AcademicGroup.id == academic_group_id
-            ).first()
-            if not group:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Grupo académico não encontrado"
-                )
+            import logging
+            logger = logging.getLogger("uvicorn.error")
+            logger.info(f"[EVENT] Validando academic_group_id: {academic_group_id} (tipo: {type(academic_group_id)})")
+            
+            # Converter para int se for string numérica, caso contrário ignorar
+            try:
+                group_id_int = int(academic_group_id) if isinstance(academic_group_id, str) else academic_group_id
+            except (ValueError, TypeError):
+                logger.warning(f"[EVENT] academic_group_id inválido (não numérico): {academic_group_id} - ignorando e criando sem grupo")
+                academic_group_id = None
+            else:
+                group = self.db.query(AcademicGroup).filter(
+                    AcademicGroup.id == group_id_int
+                ).first()
+                logger.info(f"[EVENT] Grupo encontrado: {group}")
+                if not group:
+                    logger.warning(f"[EVENT] Grupo académico não encontrado: {group_id_int} - criando sem grupo")
+                    academic_group_id = None
+                else:
+                    academic_group_id = group_id_int
+                    logger.info(f"[EVENT] Criando evento com grupo acadêmico: {group_id_int}")
         
         # Criação
         event_data = {
             "title": title.strip(),
             "description": description.strip() if description else "",
             "timestamp": datetime.now(),
-            "eventDate": scheduled_date.date() if isinstance(scheduled_date, datetime) else scheduled_date,
+            "eventDate": sched_date,
             "startTime": start_time,
             "endTime": end_time,
             "academicGroupId": academic_group_id,
@@ -294,11 +308,15 @@ class EventService:
                 detail="Evento não encontrado"
             )
         
-        # Validar autorização (apenas criador)
-        if event.creatorId != current_user.id:
+        # Validar autorização (criador ou admin)
+        import logging
+        logger = logging.getLogger("uvicorn.error")
+        logger.info(f"[EVENT] Validando permissão de edição: event.creatorId={event.creatorId}, current_user.id={current_user.id}, role={current_user.role.value}")
+        if event.creatorId != current_user.id and current_user.role.value != 'admin':
+            logger.warning(f"[EVENT] Permissão negada para edição: usuário {current_user.id} não é criador nem admin")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Apenas o criador do evento pode editá-lo"
+                detail="Apenas o criador do evento ou um administrador pode editá-lo"
             )
         
         # Aplicar atualizações
@@ -334,8 +352,11 @@ class EventService:
             )
         
         # Validar autorização (criador OU admin)
+        import logging
+        logger = logging.getLogger("uvicorn.error")
         is_creator = event.creatorId == current_user.id
-        is_admin = current_user.role == UserRole.ADMIN
+        is_admin = current_user.role.value == 'admin'
+        logger.info(f"[EVENT] Validando permissão de deleção: is_creator={is_creator}, is_admin={is_admin}, role={current_user.role.value}")
         
         if not is_creator and not is_admin:
             raise HTTPException(

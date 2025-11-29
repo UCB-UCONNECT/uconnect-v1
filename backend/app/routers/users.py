@@ -1,6 +1,6 @@
 # ---------------- ROTAS DE GERENCIAMENTO DE USUÁRIOS ---------------- #
 """
-Este arquivo define os endpoints da API para o
+Aqui definimos os endpoints da API para o
 gerenciamento completo do ciclo de vida dos usuários.
 
 Suas responsabilidades incluem:

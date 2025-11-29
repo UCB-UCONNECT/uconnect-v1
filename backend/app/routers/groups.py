@@ -1,6 +1,6 @@
 # ---------------- ROTAS DE GRUPOS ACADÊMICOS ---------------- #
 """
-Este arquivo (routers/groups.py) define os endpoints da API para gerenciar
+Aqui, definimos os endpoints da API para gerenciar
 os Grupos Acadêmicos e seus membros.
 
 Suas responsabilidades incluem:

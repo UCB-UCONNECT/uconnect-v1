@@ -180,14 +180,14 @@ export const deleteEvent = async (eventId) => {
 
 // ... (Funções de Chat permanecem iguais) ...
 export const getConversations = async () => {
-    const response = await fetch(`${API_URL}/chats`, {
+    const response = await fetch(`${API_URL}/chat`, {
         headers: getHeaders(),
     });
     return handleResponse(response);
 };
 
 export const getMessages = async (chatId, options = {}) => {
-    const response = await fetch(`${API_URL}/chats/${chatId}/messages`, {
+    const response = await fetch(`${API_URL}/chat/${chatId}/messages`, {
         method: "GET",
         headers: getHeaders(),
         ...options,
@@ -196,7 +196,7 @@ export const getMessages = async (chatId, options = {}) => {
 };
 
 export const sendMessage = async (chatId, messageContent) => {
-    const response = await fetch(`${API_URL}/chats/${chatId}/messages`, {
+    const response = await fetch(`${API_URL}/chat/${chatId}/messages`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ content: messageContent }),
@@ -205,7 +205,7 @@ export const sendMessage = async (chatId, messageContent) => {
 };
 
 export const markAllMessagesAsRead = async (chatId) => {
-    const response = await fetch(`${API_URL}/chats/${chatId}/read`, {
+    const response = await fetch(`${API_URL}/chat/${chatId}/read`, {
         method: "POST",
         headers: getHeaders(),
     });
@@ -216,7 +216,7 @@ export const createConversation = async (participantIds, title) => {
     const body = { participant_ids: participantIds };
     if (title) body.title = title;
 
-    const response = await fetch(`${API_URL}/chats`, {
+    const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(body),
@@ -225,7 +225,7 @@ export const createConversation = async (participantIds, title) => {
 };
 
 export const deleteConversation = async (chatId) => {
-    const response = await fetch(`${API_URL}/chats/${chatId}`, {
+    const response = await fetch(`${API_URL}/chat/${chatId}`, {
         method: "DELETE",
         headers: getHeaders(),
     });
@@ -235,7 +235,7 @@ export const deleteConversation = async (chatId) => {
 // --- FUNÇÕES DE POSTS (COMUNICADOS) ---
 
 export const getPosts = async () => {
-    const response = await fetch(`${API_URL}/posts`, { 
+    const response = await fetch(`${API_URL}/publications`, { 
         method: "GET",
         headers: getHeaders(),
     });
@@ -243,7 +243,7 @@ export const getPosts = async () => {
 };
 
 export const getPost = async (postId) => {
-    const response = await fetch(`${API_URL}/posts/${postId}`, {
+    const response = await fetch(`${API_URL}/publications/${postId}`, {
         method: "GET",
         headers: getHeaders(),
     });
@@ -251,7 +251,7 @@ export const getPost = async (postId) => {
 };
 
 export const createPost = async (postData) => {
-    const response = await fetch(`${API_URL}/posts`, {
+    const response = await fetch(`${API_URL}/publications`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(postData),
@@ -260,7 +260,7 @@ export const createPost = async (postData) => {
 };
 
 export const updatePost = async (postId, postData) => {
-    const response = await fetch(`${API_URL}/posts/${postId}`, {
+    const response = await fetch(`${API_URL}/publications/${postId}`, {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify(postData),
@@ -269,7 +269,7 @@ export const updatePost = async (postId, postData) => {
 };
 
 export const deletePost = async (postId) => {
-    const response = await fetch(`${API_URL}/posts/${postId}`, {
+    const response = await fetch(`${API_URL}/publications/${postId}`, {
         method: "DELETE",
         headers: getHeaders(),
     });
@@ -277,7 +277,7 @@ export const deletePost = async (postId) => {
 };
 
 export const getPostsStats = async () => {
-    const response = await fetch(`${API_URL}/posts/stats/count`, {
+    const response = await fetch(`${API_URL}/publications/stats/count`, {
         method: "GET",
         headers: getHeaders(),
     });
@@ -287,7 +287,7 @@ export const getPostsStats = async () => {
 // --- NOVAS FUNÇÕES DE ANNOUNCEMENTS (AVISOS) ---
 
 export const getAnnouncements = async () => {
-    const response = await fetch(`${API_URL}/announcements`, { 
+    const response = await fetch(`${API_URL}/publications/announcements`, { 
         method: "GET",
         headers: getHeaders(),
     });
@@ -295,7 +295,7 @@ export const getAnnouncements = async () => {
 };
 
 export const getAnnouncement = async (announcementId) => {
-    const response = await fetch(`${API_URL}/announcements/${announcementId}`, {
+    const response = await fetch(`${API_URL}/publications/announcements/${announcementId}`, {
         method: "GET",
         headers: getHeaders(),
     });
@@ -303,7 +303,7 @@ export const getAnnouncement = async (announcementId) => {
 };
 
 export const createAnnouncement = async (announcementData) => {
-    const response = await fetch(`${API_URL}/announcements`, {
+    const response = await fetch(`${API_URL}/publications/announcements`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(announcementData),
@@ -312,7 +312,7 @@ export const createAnnouncement = async (announcementData) => {
 };
 
 export const updateAnnouncement = async (announcementId, announcementData) => {
-    const response = await fetch(`${API_URL}/announcements/${announcementId}`, {
+    const response = await fetch(`${API_URL}/publications/announcements/${announcementId}`, {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify(announcementData),
@@ -321,7 +321,7 @@ export const updateAnnouncement = async (announcementId, announcementData) => {
 };
 
 export const deleteAnnouncement = async (announcementId) => {
-    const response = await fetch(`${API_URL}/announcements/${announcementId}`, {
+    const response = await fetch(`${API_URL}/publications/announcements/${announcementId}`, {
         method: "DELETE",
         headers: getHeaders(),
     });
@@ -329,7 +329,7 @@ export const deleteAnnouncement = async (announcementId) => {
 };
 
 export const getAnnouncementsStats = async () => {
-    const response = await fetch(`${API_URL}/announcements/stats/count`, {
+    const response = await fetch(`${API_URL}/publications/announcements/stats/count`, {
         method: "GET",
         headers: getHeaders(),
     });
